@@ -15,11 +15,13 @@ import (
 var (
 	cfg = struct {
 		ConfigFile     string `flag:"config-file,f" default:"files.yaml" description:"Configuration file"`
-		Verbose        bool   `flag;"verbose,v" default:"false" description:"Show more debug output"`
+		Verbose        bool   `flag:"verbose,v" default:"false" description:"Show more debug output"`
 		VersionAndExit bool   `flag:"version" default:"false" description:"Prints current version and exits"`
 	}{}
 
-	downloadConfig = &configFile{}
+	downloadConfig = &configFile{
+		Files: make(map[string]*configFileSource),
+	}
 
 	version = "dev"
 )
@@ -42,6 +44,7 @@ func init() {
 }
 
 func reloadConfig() error {
+	debug("Reloading configuration")
 	c, err := loadConfigFile(cfg.ConfigFile)
 	if err != nil {
 		return err

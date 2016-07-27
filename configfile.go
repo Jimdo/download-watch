@@ -26,7 +26,7 @@ const (
 type configFile struct {
 	sync.RWMutex
 
-	Files map[string]configFileSource `yaml:"files"`
+	Files map[string]*configFileSource `yaml:"files"`
 }
 
 type configFileSource struct {
@@ -39,9 +39,22 @@ type configFileSource struct {
 
 	lastCall     time.Time
 	lastSeenETag string
+	inProgress   time.Time
 }
 
-func (c configFileSource) Equals(in configFileSource) bool {
+func (c *configFileSource) Lock() {
+	c.inProgress = time.Now()
+}
+
+func (c *configFileSource) Unlock() {
+	c.inProgress = time.Time{}
+}
+
+func (c configFileSource) IsLocked() bool {
+	return c.inProgress.Add(c.Timeout).After(time.Now())
+}
+
+func (c configFileSource) Equals(in *configFileSource) bool {
 	return c.Timeout == in.Timeout &&
 		c.FetchInterval == in.FetchInterval &&
 		c.IgnoreETag == in.IgnoreETag &&
@@ -81,7 +94,7 @@ func (c *configFile) Patch(in *configFile) error {
 	return nil
 }
 
-func excessKeys(a, b map[string]configFileSource) (excess []string) {
+func excessKeys(a, b map[string]*configFileSource) (excess []string) {
 	for aKey := range a {
 		found := false
 		for bKey := range b {
@@ -109,10 +122,9 @@ func (c configFile) WaitNextExecution() <-chan time.Time {
 	c.RUnlock()
 
 	if sleep < 0 {
-		sleep = 0
+		sleep = 100 * time.Millisecond
 	}
 
-	debug("Next fetch will start in %s", sleep.String())
 	return time.After(sleep)
 }
 
@@ -121,9 +133,11 @@ func (c *configFile) ExecuteExpired() error {
 	defer c.RUnlock()
 
 	for filePath, fc := range c.Files {
-		if fc.lastCall.Add(fc.FetchInterval).After(time.Now()) {
+		if fc.lastCall.Add(fc.FetchInterval).After(time.Now()) || fc.IsLocked() {
 			continue
 		}
+
+		fc.Lock()
 
 		go func(filePath string) {
 			debug("Starting fetch of file '%s'", filePath)
@@ -218,6 +232,7 @@ func (c *configFile) executeDownload(targetPath string) error {
 	defer c.Unlock()
 	tmp := c.Files[targetPath]
 	tmp.lastCall = time.Now()
+	tmp.Unlock()
 	c.Files[targetPath] = tmp
 
 	return nil
