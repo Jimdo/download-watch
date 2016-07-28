@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 	"sync"
@@ -26,16 +27,18 @@ const (
 type configFile struct {
 	sync.RWMutex
 
-	Files map[string]*configFileSource `yaml:"files"`
+	Files        map[string]*configFileSource `yaml:"files"`
+	CommandShell []string                     `yaml:"command_shell"`
 }
 
 type configFileSource struct {
-	BasicAuth     string        `yaml:"basic_auth"`
-	Timeout       time.Duration `yaml:"timeout"`
-	FetchInterval time.Duration `yaml:"fetch_interval"`
-	IgnoreETag    bool          `yaml:"ignore_etag"`
-	SHA256        string        `yaml:"sha256"`
-	URL           string        `yaml:"url"`
+	BasicAuth      string        `yaml:"basic_auth"`
+	SuccessCommand string        `yaml:"success_command"`
+	Timeout        time.Duration `yaml:"timeout"`
+	FetchInterval  time.Duration `yaml:"fetch_interval"`
+	IgnoreETag     bool          `yaml:"ignore_etag"`
+	SHA256         string        `yaml:"sha256"`
+	URL            string        `yaml:"url"`
 
 	lastCall     time.Time
 	lastSeenETag string
@@ -232,8 +235,27 @@ func (c *configFile) executeDownload(targetPath string) error {
 	defer c.Unlock()
 	tmp := c.Files[targetPath]
 	tmp.lastCall = time.Now()
+	tmp.lastSeenETag = res.Header.Get("ETag")
 	tmp.Unlock()
 	c.Files[targetPath] = tmp
 
+	go func(targetPath string) {
+		if err := c.executeSuccessCommand(targetPath); err != nil {
+			log.Printf("Could not execute success-command for '%s': %s", targetPath, err)
+		}
+	}(targetPath)
+
 	return nil
+}
+
+func (c *configFile) executeSuccessCommand(targetPath string) error {
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.Files[targetPath].SuccessCommand == "" {
+		return nil
+	}
+
+	cmd := exec.Command(c.CommandShell[0], append(c.CommandShell, c.Files[targetPath].SuccessCommand)[1:]...)
+	return cmd.Run()
 }

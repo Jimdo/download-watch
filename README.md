@@ -11,6 +11,8 @@ It can save the file
 
 ```yaml
 ---
+# Optional: Command to use for executing the success_command, the command will get appended as one argument (default: ["/bin/bash", "-c"])
+command_shell: ["/bin/bash", "-c"]
 files:
   # Key for the map is the target file path
   /etc/myconfig.conf:
@@ -26,6 +28,8 @@ files:
     sha256: e84712238709398f6d349dc2250b0efca4b72d8c2bfb7b74339d30ba94056b14
     # Required: URL to fetch the file from
     url: https://example.com/myconfig.conf
+    # Optional: Command to execute every time the file was written successfully
+    success_command: /etc/init.d/apache2 reload
   /etc/myotherconfig.conf:
     url: https://example.com/myotherconfig.conf
     fetch_interval: 1h

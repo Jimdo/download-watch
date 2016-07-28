@@ -20,7 +20,8 @@ var (
 	}{}
 
 	downloadConfig = &configFile{
-		Files: make(map[string]*configFileSource),
+		CommandShell: []string{"/bin/bash", "-c"},
+		Files:        make(map[string]*configFileSource),
 	}
 
 	version = "dev"
