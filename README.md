@@ -1,5 +1,12 @@
 # Jimdo / download-watch
 
+`download-watch` is a utility to watch on URLs and save their output locally. Also it's possible to execute commands when files changed. For example you could reload a webserver when a new configuration was written.
+
+It can save the file
+- periodically no matter what
+- when it changed (ETag aware) so that it's not written if the server says nothing changed
+- when the SHA256 hash doesn't match locally but on the server
+
 ## Configuration file
 
 ```yaml
