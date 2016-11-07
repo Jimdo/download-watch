@@ -65,8 +65,10 @@ func (c configFileSource) Equals(in *configFileSource) bool {
 		c.URL == in.URL
 }
 
-func (c *configFileSource) MarkExecuted() {
+func (c *configFileSource) Finish(eTag string) {
 	c.lastCall = time.Now()
+	c.lastSeenETag = eTag
+	c.Unlock()
 }
 
 func loadConfigFile(filePath string) (*configFile, error) {
@@ -205,7 +207,9 @@ func (c *configFile) executeDownload(targetPath string) error {
 	case res.StatusCode >= 400:
 		return fmt.Errorf("Got error status code %d", res.StatusCode)
 	case res.StatusCode == 304:
-		c.Files[targetPath].MarkExecuted()
+		c.Lock()
+		defer c.Unlock()
+		c.Files[targetPath].Finish(c.Files[targetPath].lastSeenETag)
 		return nil
 	case res.StatusCode == 200:
 		// Exclude from default, handle later
@@ -238,11 +242,7 @@ func (c *configFile) executeDownload(targetPath string) error {
 
 	c.Lock()
 	defer c.Unlock()
-	tmp := c.Files[targetPath]
-	tmp.lastSeenETag = res.Header.Get("ETag")
-	tmp.MarkExecuted()
-	tmp.Unlock()
-	c.Files[targetPath] = tmp
+	c.Files[targetPath].Finish(res.Header.Get("ETag"))
 
 	go func(targetPath string) {
 		if err := c.executeSuccessCommand(targetPath); err != nil {
