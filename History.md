@@ -1,3 +1,7 @@
+# 0.1.4 / 2016-11-07
+
+  * Fix: Downloader was blocking forever after first successful download
+
 # 0.1.3 / 2016-11-07
 
   * Fix: Reset interval when file was not changed
