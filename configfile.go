@@ -65,6 +65,10 @@ func (c configFileSource) Equals(in *configFileSource) bool {
 		c.URL == in.URL
 }
 
+func (c *configFileSource) MarkExecuted() {
+	c.lastCall = time.Now()
+}
+
 func loadConfigFile(filePath string) (*configFile, error) {
 	raw, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -201,6 +205,7 @@ func (c *configFile) executeDownload(targetPath string) error {
 	case res.StatusCode >= 400:
 		return fmt.Errorf("Got error status code %d", res.StatusCode)
 	case res.StatusCode == 304:
+		c.Files[targetPath].MarkExecuted()
 		return nil
 	case res.StatusCode == 200:
 		// Exclude from default, handle later
@@ -234,8 +239,8 @@ func (c *configFile) executeDownload(targetPath string) error {
 	c.Lock()
 	defer c.Unlock()
 	tmp := c.Files[targetPath]
-	tmp.lastCall = time.Now()
 	tmp.lastSeenETag = res.Header.Get("ETag")
+	tmp.MarkExecuted()
 	tmp.Unlock()
 	c.Files[targetPath] = tmp
 
