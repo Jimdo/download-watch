@@ -120,21 +120,30 @@ func excessKeys(a, b map[string]*configFileSource) (excess []string) {
 }
 
 func (c configFile) WaitNextExecution() <-chan time.Time {
-	sleep := 720 * time.Hour
+	res := make(chan time.Time)
 
-	c.RLock()
-	for _, v := range c.Files {
-		if w := v.lastCall.Add(v.FetchInterval).Sub(time.Now()); w < sleep {
-			sleep = w
+	go func() {
+		for {
+			sleep := 720 * time.Hour
+
+			c.RLock()
+			for _, v := range c.Files {
+				if w := v.lastCall.Add(v.FetchInterval).Sub(time.Now()); w < sleep {
+					sleep = w
+				}
+			}
+			c.RUnlock()
+
+			if sleep < 0 {
+				sleep = 100 * time.Millisecond
+			}
+
+			debug("Sleeping for %s until next event (wakeup at %s)...", sleep, time.Now().Add(sleep))
+			res <- <-time.After(sleep)
 		}
-	}
-	c.RUnlock()
+	}()
 
-	if sleep < 0 {
-		sleep = 100 * time.Millisecond
-	}
-
-	return time.After(sleep)
+	return res
 }
 
 func (c *configFile) ExecuteExpired() error {
@@ -207,8 +216,6 @@ func (c *configFile) executeDownload(targetPath string) error {
 	case res.StatusCode >= 400:
 		return fmt.Errorf("Got error status code %d", res.StatusCode)
 	case res.StatusCode == 304:
-		c.Lock()
-		defer c.Unlock()
 		c.Files[targetPath].Finish(c.Files[targetPath].lastSeenETag)
 		return nil
 	case res.StatusCode == 200:
@@ -240,8 +247,6 @@ func (c *configFile) executeDownload(targetPath string) error {
 		return err
 	}
 
-	c.Lock()
-	defer c.Unlock()
 	c.Files[targetPath].Finish(res.Header.Get("ETag"))
 
 	go func(targetPath string) {

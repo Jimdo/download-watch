@@ -65,9 +65,11 @@ func main() {
 	hupChan := make(chan os.Signal)
 	signal.Notify(hupChan, syscall.SIGHUP)
 
+	waiter := downloadConfig.WaitNextExecution()
+
 	for {
 		select {
-		case <-downloadConfig.WaitNextExecution():
+		case <-waiter:
 			downloadConfig.ExecuteExpired()
 		case <-hupChan:
 			if err := reloadConfig(); err != nil {
