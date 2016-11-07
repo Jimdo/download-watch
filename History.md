@@ -1,3 +1,7 @@
+# 0.1.3 / 2016-11-07
+
+  * Fix: Reset interval when file was not changed
+
 # 0.1.2 / 2016-10-17
 
   * Add Github releases publishing
