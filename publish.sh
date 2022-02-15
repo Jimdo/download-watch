@@ -6,10 +6,10 @@ ARCHS="linux/386 linux/amd64 linux/arm darwin/amd64 darwin/386 windows/386 windo
 
 set -e
 
-if [ -z "${VERSION}" ]; then
-	echo "No tag present, stopping build now."
-	exit 0
-fi
+#if [ -z "${VERSION}" ]; then
+#	echo "No tag present, stopping build now."
+#	exit 0
+#fi
 
 if [ -z "${GITHUB_TOKEN}" ]; then
 	echo "Please set \$GITHUB_TOKEN environment variable"
